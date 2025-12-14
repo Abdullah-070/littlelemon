@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Book a Table - Little Lemon</title>
+    {% load static %}
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+</head>
+<body>
+    <h1>Book a Table</h1>
+    <nav>
+        <a href="/">Home</a> |
+        <a href="/about/">About</a> |
+        <a href="/book/">Book a Table</a> |
+        <a href="/reservations/">View Reservations</a>
+    </nav>
+    
+    <!-- Success Modal -->
+    <div id="successModal" class="modal">
+        <div class="modal-content">
+            <span class="close-btn" onclick="closeModal()">&times;</span>
+            <div class="modal-icon">✓</div>
+            <h2>Booking Successful!</h2>
+            <p>Your table has been booked successfully.</p>
+            <p class="modal-details">You can view your reservation details on the "View Reservations" page.</p>
+            <button class="modal-button" onclick="closeModal()">Continue Booking</button>
+        </div>
+    </div>
+    
+    <form method="POST" id="bookingForm">
+        {% csrf_token %}
+        <div class="form-group">
+            <label for="first_name">First Name:</label>
+            {{ form.first_name }}
+        </div>
+        
+        <div class="form-group">
+            <label for="reservation_date">Reservation Date:</label>
+            {{ form.reservation_date }}
+        </div>
+        
+        <div class="form-group">
+            <label for="reservation_slot">Reservation Slot:</label>
+            {{ form.reservation_slot }}
+            <small class="slot-info">Booked slots will be automatically disabled</small>
+        </div>
+        
+        <button type="submit">Book Table</button>
+    </form>
+
+    <script>
+        // Check if booking was successful
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('booked') === 'true') {
+            showModal();
+        }
+
+        // All available time slots
+        const allSlots = [
+            { value: '10', label: '10:00 AM' },
+            { value: '11', label: '11:00 AM' },
+            { value: '12', label: '12:00 PM' },
+            { value: '13', label: '1:00 PM' },
+            { value: '14', label: '2:00 PM' },
+            { value: '15', label: '3:00 PM' },
+            { value: '16', label: '4:00 PM' },
+            { value: '17', label: '5:00 PM' },
+            { value: '18', label: '6:00 PM' },
+            { value: '19', label: '7:00 PM' },
+            { value: '20', label: '8:00 PM' }
+        ];
+
+        const dateInput = document.getElementById('reservation_date');
+        const slotSelect = document.getElementById('reservation_slot');
+
+        // Make date picker open on any click in the date field
+        dateInput.addEventListener('click', function() {
+            this.showPicker();
+        });
+
+        // Also trigger on focus
+        dateInput.addEventListener('focus', function() {
+            this.showPicker();
+        });
+
+        // Update available slots when date changes
+        dateInput.addEventListener('change', function() {
+            const selectedDate = this.value;
+            if (selectedDate) {
+                updateAvailableSlots(selectedDate);
+            }
+        });
+
+        function updateAvailableSlots(date) {
+            // Fetch booked slots for the selected date
+            fetch(`/api/booked-slots/?date=${date}`)
+                .then(response => response.json())
+                .then(data => {
+                    const bookedSlots = data.booked_slots || [];
+                    
+                    // Store the current value
+                    const currentValue = slotSelect.value;
+                    
+                    // Clear the select
+                    slotSelect.innerHTML = '';
+                    
+                    // Add placeholder option
+                    const placeholderOption = document.createElement('option');
+                    placeholderOption.value = '';
+                    placeholderOption.textContent = '-- Select a time slot --';
+                    slotSelect.appendChild(placeholderOption);
+                    
+                    // Add available slots
+                    allSlots.forEach(slot => {
+                        const isBooked = bookedSlots.includes(parseInt(slot.value));
+                        const option = document.createElement('option');
+                        option.value = slot.value;
+                        option.textContent = isBooked ? `${slot.label} (BOOKED)` : slot.label;
+                        option.disabled = isBooked;
+                        slotSelect.appendChild(option);
+                    });
+                    
+                    // Restore the previous value if it's still available
+                    if (currentValue && !slotSelect.querySelector(`option[value="${currentValue}"]`).disabled) {
+                        slotSelect.value = currentValue;
+                    } else {
+                        slotSelect.value = '';
+                    }
+                })
+                .catch(error => {
+                    console.error('Error fetching booked slots:', error);
+                });
+        }
+
+        // Modal functions
+        function showModal() {
+            const modal = document.getElementById('successModal');
+            modal.style.display = 'block';
+        }
+
+        function closeModal() {
+            const modal = document.getElementById('successModal');
+            modal.style.display = 'none';
+            // Clear the URL parameter
+            window.history.replaceState({}, document.title, window.location.pathname);
+        }
+
+        // Close modal when clicking outside of it
+        window.addEventListener('click', function(event) {
+            const modal = document.getElementById('successModal');
+            if (event.target === modal) {
+                closeModal();
+            }
+        });
+
+        // Close modal on Escape key
+        document.addEventListener('keydown', function(event) {
+            if (event.key === 'Escape') {
+                closeModal();
+            }
+        });
+    </script>
+</body>
+</html>
